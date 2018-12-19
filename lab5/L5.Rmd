@@ -1,0 +1,126 @@
+---
+title: "L5"
+author: "Kushtanov Dmitry"
+date: '19 декабря 2018 г '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(gplots)
+library(multcomp)
+```
+
+### Загрузка данные
+```{r}
+data = read.csv("https://raw.githubusercontent.com/InfantLab/NotebookDemos/master/diet.csv",row.names=1)
+summary(data)
+```
+
+### Знакомство с данными и их переименование
+>[Diet data description](https://www.sheffield.ac.uk/polopoly_fs/1.547015!/file/Diet_data_description.docx), [Datasets for teaching](https://www.sheffield.ac.uk/mash/data).
+
+```{r}
+colnames(data) <- c("gender", "age", "height", "initial.weight", 
+                    "diet.type", "final.weight")
+data$diet.type <- factor(c("A", "B", "C")[data$diet.type])
+```
+
+###Добавим новую колонку - Похудение
+```{r}
+data$weight.loss = data$initial.weight - data$final.weight
+```
+
+###Проанализиуем есть ли различия по типам диет
+```{r}
+boxplot(weight.loss~diet.type,data=data,col="light gray",
+        ylab = "Weight loss (kg)", xlab = "Diet type")
+abline(h=0,col="green")
+```
+
+###Проверим сбалансированные ли данные
+```{r}
+table(data$diet.type)
+```
+
+###График групповых средних
+```{r}
+plotmeans(weight.loss ~ diet.type, data=data)
+aggregate(data$weight.loss, by = list(data$diet.type), FUN=sd)
+```
+
+###Для подгонки ANOVA модели используем функцию aov, частный случай линейной модели lm тест на межгрупповые различия
+```{r}
+fit <- aov(weight.loss ~ diet.type, data=data)
+summary(fit)
+```
+
+###Попарные различия между средними значениями для всех групп
+```{r}
+TukeyHSD(fit)
+```
+
+###Tukey honest significant differences test
+```{r}
+library(multcomp)
+par(mar=c(5,4,6,2))
+tuk <- glht(fit, linfct=mcp(diet.type="Tukey"))
+plot(cld(tuk, level=.05),col="lightgrey")
+```
+
+###Добавить проверку на выборы и избавиться от них
+```{r}
+plot(data$weight.loss ~ data$diet.type)
+plot(lm(data$weight.loss ~ data$diet.type), which=c(4))
+data <- data[-c(10,17,50),]
+plot(data$weight.loss ~ data$diet.type)
+plot(lm(data$weight.loss ~ data$diet.type), which=c(4))
+```
+
+###Повторная проверка
+```{r}
+table(data$diet.type)
+plotmeans(weight.loss ~ diet.type, data=data)
+aggregate(data$weight.loss, by = list(data$diet.type), FUN=sd)
+fit <- aov(weight.loss ~ diet.type, data=data)
+summary(fit)
+TukeyHSD(fit)
+par(mar=c(5,4,6,2))
+tuk <- glht(fit, linfct=mcp(diet.type="Tukey"))
+plot(cld(tuk, level=.05),col="lightgrey")
+```
+Особого различия не появилось
+
+###Удаление пустых
+```{r}
+data <- data[!is.na(data$gender),]
+data$gender <- factor(c('Female','Male')[as.ordered(data$gender)])
+```
+
+###Проверка для пола
+```{r}
+boxplot(weight.loss~gender,data=data,col="light gray",
+        ylab = "Weight loss (kg)", xlab = "Diet type")
+abline(h=0,col="green")
+```
+```{r}
+plotmeans(weight.loss ~ gender, data=data)
+aggregate(data$weight.loss, by = list(data$gender), FUN=sd)
+```
+
+```{r}
+fit <- aov(weight.loss ~ gender, data=data)
+summary(fit)
+TukeyHSD(fit)
+par(mar=c(5,4,6,2))
+tuk <- glht(fit, linfct=mcp(gender="Tukey"))
+plot(cld(tuk, level=.05),col="lightgrey")
+```
+От пола нет зависимости
+
+###+рост
+```{r}
+fit <- aov(weight.loss ~ +gender+height, data=data)
+summary(fit)
+```
